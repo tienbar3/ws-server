@@ -1,9 +1,9 @@
 const WebSocket = require('ws');
-const tls = require('tls'); // ← đổi từ net sang tls
+const net = require('net'); // ← dùng net, không phải tls
 
 const PORT = process.env.PORT || 8080;
 const POOL_HOST = process.env.POOL_HOST || 'pool.supportxmr.com';
-const POOL_PORT = process.env.POOL_PORT || 443;
+const POOL_PORT = process.env.POOL_PORT || 3333;
 
 const wss = new WebSocket.Server({ port: PORT });
 
