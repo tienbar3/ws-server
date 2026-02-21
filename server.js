@@ -15,12 +15,37 @@ wss.on('connection', (ws, req) => {
     console.log(`[TCP] Connected from ${clientIP} -> ${POOL_HOST} (${POOL_PORT})`);
   });
 
+  let buffer = '';
+
+  // Client → Pool
   ws.on('message', (data) => {
-    if (tcp.writable) tcp.write(data);
+    try {
+      const str = data.toString();
+      console.log('[WS→TCP]', str);
+      // Stratum cần newline ở cuối mỗi message
+      if (tcp.writable) tcp.write(str + (str.endsWith('\n') ? '' : '\n'));
+    } catch(e) {
+      console.error('[WS→TCP Error]', e.message);
+    }
   });
 
+  // Pool → Client
   tcp.on('data', (data) => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    try {
+      buffer += data.toString();
+      // Tách từng dòng JSON riêng
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // giữ phần chưa complete
+      
+      lines.forEach(line => {
+        if (line.trim() && ws.readyState === WebSocket.OPEN) {
+          console.log('[TCP→WS]', line);
+          ws.send(line);
+        }
+      });
+    } catch(e) {
+      console.error('[TCP→WS Error]', e.message);
+    }
   });
 
   ws.on('close', () => {
@@ -28,9 +53,7 @@ wss.on('connection', (ws, req) => {
     tcp.destroy();
   });
 
-  tcp.on('close', () => {
-    ws.close();
-  });
+  tcp.on('close', () => ws.close());
 
   ws.on('error', (err) => console.error('[WS Error]', err.message));
   tcp.on('error', (err) => console.error('[TCP Error]', err.message));
