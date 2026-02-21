@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const net = require('net'); // ← dùng net, không phải tls
+const net = require('net');
 
 const PORT = process.env.PORT || 8080;
 const POOL_HOST = process.env.POOL_HOST || 'pool.supportxmr.com';
@@ -11,8 +11,7 @@ wss.on('connection', (ws, req) => {
   const clientIP = req.socket.remoteAddress;
   console.log(`[WS] Connecting from ${clientIP} -> ${POOL_HOST} (${POOL_PORT})`);
 
-  // Dùng TLS thay vì TCP thường
-  const tcp = tls.connect(POOL_PORT, POOL_HOST, { rejectUnauthorized: false }, () => {
+  const tcp = net.createConnection(POOL_PORT, POOL_HOST, () => {
     console.log(`[TCP] Connected from ${clientIP} -> ${POOL_HOST} (${POOL_PORT})`);
   });
 
