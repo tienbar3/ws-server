@@ -1,19 +1,40 @@
-// server.js
 const WebSocket = require('ws');
+const tls = require('tls'); // ← đổi từ net sang tls
 
 const PORT = process.env.PORT || 8080;
+const POOL_HOST = process.env.POOL_HOST || 'pool.supportxmr.com';
+const POOL_PORT = process.env.POOL_PORT || 443;
+
 const wss = new WebSocket.Server({ port: PORT });
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
+wss.on('connection', (ws, req) => {
+  const clientIP = req.socket.remoteAddress;
+  console.log(`[WS] Connecting from ${clientIP} -> ${POOL_HOST} (${POOL_PORT})`);
 
-  ws.on('message', (message) => {
-    console.log('Received:', message.toString());
-    // Echo lại hoặc xử lý logic
-    ws.send(`Server received: ${message}`);
+  // Dùng TLS thay vì TCP thường
+  const tcp = tls.connect(POOL_PORT, POOL_HOST, { rejectUnauthorized: false }, () => {
+    console.log(`[TCP] Connected from ${clientIP} -> ${POOL_HOST} (${POOL_PORT})`);
   });
 
-  ws.on('close', () => console.log('Client disconnected'));
+  ws.on('message', (data) => {
+    if (tcp.writable) tcp.write(data);
+  });
+
+  tcp.on('data', (data) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(data);
+  });
+
+  ws.on('close', () => {
+    console.log(`[TCP] Pool socket closed for ${POOL_HOST} (${POOL_PORT})`);
+    tcp.destroy();
+  });
+
+  tcp.on('close', () => {
+    ws.close();
+  });
+
+  ws.on('error', (err) => console.error('[WS Error]', err.message));
+  tcp.on('error', (err) => console.error('[TCP Error]', err.message));
 });
 
-console.log(`WS Server running on port ${PORT}`);
+console.log(`[WSS] Proxy running on port ${PORT} -> ${POOL_HOST}:${POOL_PORT}`);
